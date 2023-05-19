@@ -4,6 +4,9 @@ import colors from 'colors'
 import connectDB from "./config/db.js";
 import cors from "cors";
 import UserRouts from "./routs/userRouts.js"
+import RecipeRouts from "./routs/recipeRouts.js"
+import Category from "./routs/categoryRouts.js";
+import Review from "./routs/reviewRouts.js"
 dotenv.config();
 
 connectDB();
@@ -19,6 +22,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 
 app.use("/user", UserRouts)
+app.use("/recipe", RecipeRouts)
+app.use("/category", Category)
+app.use("/review", Review)
 
 app.listen(port,
     () =>(

@@ -1,39 +1,75 @@
 import asyncHandler from "express-async-handler";
 import generateToken from "../utils/generateToken.js";
 import User from "../models/userModel.js";
+import cloudinary from "cloudinary";
 
 //============
-
 const registerUser = asyncHandler(async (req, res, next) => {
   const { name, email, password, phoneNumber, isAdmin } = req.body;
-  console.log(req.body);
+
   if (!name || !email || !password) {
-    return res.status(400).json({ message: "Missing required fields" });
+    return res
+      .status(200)
+      .json({ message: "Missing required fields", success: false });
   }
   if (!req.file) {
-    return res.status(400).json({ message: "Image file is missing" });
+    return res
+      .status(200)
+      .json({ message: "Required image missing", success: false });
   }
 
-  const image_url = req.file.path;
+  // Check if user with same name or email already exists
+  const existingUser = await User.findOne({ $or: [{ name }, { email }] });
+  if (existingUser) {
+    if (existingUser.email === email) {
+      return res
+        .status(200)
+        .json({ message: "Email must be unique", success: false });
+    } else {
+      return res
+        .status(200)
+        .json({ message: "Name must be unique", success: false });
+    }
+  }
+
+  // Upload image to Cloudinary
+  cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET,
+  });
+
+  const result = await cloudinary.uploader.upload(req.file.path) || "";
+
+  // Create user with uploaded image URL
   const user = new User({
     name,
     email,
     password,
     phoneNumber,
-    profilePic: image_url,
+    profilePic: result.secure_url,
     isAdmin: isAdmin || false,
+    success: true,
   });
-  await user.save();
-  return res.status(201).json({
-    _id: user.id,
+
+  try {
+    await user.save();
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((val) => val.message);
+      return res.status(400).json({ message: messages });
+    }
+    throw error;
+  }
+
+  res.status(201).json({
+    _id: user._id,
     name: user.name,
     email: user.email,
+    isAdmin: user.isAdmin,
     token: generateToken(user._id),
     phoneNumber: user.phoneNumber,
     profilePic: user.profilePic,
-    followers: user.followers,
-    following: user.following,
-    isAdmin,
   });
 });
 
@@ -43,8 +79,8 @@ const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
   if (user && (await user.matchPassword(password))) {
-    res.json({
-      _id: user._id,
+    return res.status(200).json({
+      id:user.id,
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
@@ -52,42 +88,43 @@ const login = asyncHandler(async (req, res) => {
       phoneNumber: user.phoneNumber,
     });
   } else {
-    res.status(401).json({ message: "Invalid email or password" });
+    return res
+      .status(200)
+      .json({ message: "Invalid email or password"});
   }
 });
 
 //============
 
-// const logout = asyncHandler(async (req, res) => {
-//   const { email, password } = req.body;
-//   const user = await User.findOne({ email });
-//   if (user && (await user.matchPassword(password))) {
-//     res.json({
-//       message: "Logged out successfully",
-      
-//     });
-//   } else {
-//     res.status(401).json({ message: "Invalid email or password" });
-//   }
-// });
-//============
-
 const updateUserProfile = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.body;
   const user = await User.findById(id);
-  console.log("User: " + user);
+
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
 
+  // Update name and email fields if provided in request body
   user.name = req.body.name || user.name;
   user.email = req.body.email || user.email;
+
+  // Update phone number field if provided in request body
   user.phoneNumber = req.body.phoneNumber || user.phoneNumber;
 
+  // Upload new profile pic to Cloudinary if provided in request body
   if (req.file) {
-    user.profilePic = req.file.path;
+    cloudinary.config({
+      cloud_name: process.env.CLOUD_NAME,
+      api_key: process.env.API_KEY,
+      api_secret: process.env.API_SECRET,
+    });
+
+    const result = await cloudinary.uploader.upload(req.file.path);
+
+    user.profilePic = result.secure_url;
   }
 
+  // Update password field if provided in request body
   if (req.body.password) {
     user.password = req.body.password;
   }
@@ -104,9 +141,10 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     profilePic: updatedUser.profilePic,
     followers: updatedUser.followers,
     following: updatedUser.following,
-    savedPosts: updatedUser.savedPosts
+    savedPosts: updatedUser.savedPosts,
   });
 });
+
 
 //============
 
@@ -125,13 +163,20 @@ const getUserById = asyncHandler(async (req, res) => {
 
 //============
 
+const getUserByName = asyncHandler(async (req, res) => {
+  const { name } = req.body;
+  const user = await User.find({ name });
+  res.json(user);
+});
+
+//============
+
 const getUserFollowers = asyncHandler(async (req, res) => {
   const userId = req.params.id;
-
   const user = await User.findById(userId).populate("followers", "name email");
 
   if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(200).json({ message: "User not found", success: false });
   }
 
   return res.json({
@@ -147,7 +192,7 @@ const getUserFollowing = asyncHandler(async (req, res) => {
   const user = await User.findById(userId).populate("following", "name email");
 
   if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(200).json({ message: "User not found", success: false });
   }
 
   return res.json({
@@ -159,20 +204,26 @@ const getUserFollowing = asyncHandler(async (req, res) => {
 
 const followUser = asyncHandler(async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.body;
     const user = await User.findById(req.user._id);
     const userToFollow = await User.findById(id);
 
     if (!userToFollow) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "User not found", success: false });
     }
 
     if (userToFollow._id.equals(user._id)) {
-      return res.status(400).json({ message: "You cannot follow yourself" });
+      return res
+        .status(200)
+        .json({ message: "You cannot follow yourself", success: false });
     }
 
     if (userToFollow.followers.includes(user._id)) {
-      return res.status(400).json({ message: "Already following this user" });
+      return res
+        .status(200)
+        .json({ message: "Already following this user", success: false });
     }
 
     userToFollow.followers.push(user._id);
@@ -181,31 +232,32 @@ const followUser = asyncHandler(async (req, res) => {
     await userToFollow.save();
     await user.save();
 
-    res.json({
+    return res.status(200).json({
       message: "User followed successfully",
       followers: userToFollow.followers,
       following: user.following,
     });
   } catch (error) {
-    // Handle the error
     console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
+    return res.status(200).json({ message: "Internal Server Error" });
   }
 });
 
 //============
 
 const unfollowUser = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.body;
   const user = await User.findById(req.user._id);
   const userToUnfollow = await User.findById(id);
 
   if (!userToUnfollow) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(200).json({ message: "User not found", success: false });
   }
 
   if (!userToUnfollow.followers.includes(user._id)) {
-    return res.status(400).json({ message: "You are not following this user" });
+    return res
+      .status(200)
+      .json({ message: "You are not following this user", success: false });
   }
 
   const index = userToUnfollow.followers.indexOf(user._id);
@@ -249,6 +301,34 @@ const unfollowUser = asyncHandler(async (req, res) => {
 //     res.status(500).json({ message: "Internal Server Error" });
 //   }
 // });
+
+//============
+
+const deleteUser = asyncHandler(async (req, res) => {
+  const { id } = req.body;
+  const userToDelete = await User.findById(id);
+
+  // Check if user exists
+  if (!userToDelete) {
+    return res.status(200).json({ message: "User not found", success: false });
+  }
+
+  // Check if the authenticated user is authorized to delete the user
+  if (req.user.id !== userToDelete.id) {
+    return res.status(200).json({
+      message: "Not authorized to perform this action",
+      success: false,
+    });
+  }
+
+  const deletedUser = await User.findByIdAndDelete(id);
+
+  res.json({
+    message: "User deleted successfully",
+    deleteUser: deletedUser,
+  });
+});
+
 export default {
   registerUser,
   followUser,
@@ -256,7 +336,9 @@ export default {
   updateUserProfile,
   getAllUsers,
   getUserById,
+  getUserByName,
   getUserFollowers,
   getUserFollowing,
   login,
+  deleteUser,
 };

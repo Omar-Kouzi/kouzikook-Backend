@@ -5,6 +5,7 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
+    unique: true,
   },
   email: {
     type: String,
@@ -21,6 +22,7 @@ const userSchema = new mongoose.Schema({
   },
   profilePic: {
     type: String,
+    required: true,
     default: "",
   },
   followers: {
@@ -42,7 +44,7 @@ const userSchema = new mongoose.Schema({
   savedPosts: {
     type: [mongoose.Schema.Types.ObjectId],
     ref: "Post",
-    default:[],
+    default: [],
   },
 });
 
