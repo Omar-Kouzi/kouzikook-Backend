@@ -5,15 +5,16 @@ import cloudinary from "cloudinary";
 //============
 
 const postRecipe = asyncHandler(async (req, res) => {
-  const { id } = req.body;
-console.log(id)
+  const { id } = req.params;
+  console.log(id);
   const user = await User.findById(id);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
+  console.log(user);
 
   const { title, description, ingredients, steps, category } = req.body;
-
+  console.log(req.body);
   if (!title || !description || !ingredients || !steps || !category) {
     return res.status(400).json({ message: "Missing required fields" });
   }
@@ -31,27 +32,25 @@ console.log(id)
 
     const result = await cloudinary.v2.uploader.upload(req.file.path);
 
-    // Split the ingredients string into an array
     const parsedIngredients = ingredients.split(";").map((i) => i.trim());
 
     const recipe = new Recipe({
       user: user.id,
       title,
       description,
-      ingredients: parsedIngredients, // Use the parsed ingredients array
+      ingredients: parsedIngredients,
       steps,
       image: result.secure_url,
-      category: category.split(",").map((c) => c.trim()), // Use the parsed categories array
+      category: category.split(",").map((c) => c.trim()),
     });
 
     await recipe.save();
-
-    return res.status(201).json({
+    return res.status(200).json({
       recipe,
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Internal server error" });
+    // return res.status(500).json({ message: "Internal server error" });
   }
 });
 
@@ -62,6 +61,14 @@ const getAllRecipes = asyncHandler(async (req, res) => {
   res.json(recipe);
 });
 
+//============
+
+const getRecipeById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const recipe = await Recipe.findById(id);
+  console.log(id)
+  res.json(recipe);
+});
 //============
 
 const updateRecipeFour = asyncHandler(async (req, res) => {
@@ -117,26 +124,14 @@ const updateRecipeFour = asyncHandler(async (req, res) => {
 //=============
 
 const deleteRecipe = asyncHandler(async (req, res) => {
-  const { user } = req.body;
-
-  const userId = req.user.id;
-
-  const finduser = await User.findById(user);
-  if (finduser.isAdmin || user === userId) {
-    const { id } = req.body;
-    const recipe = await Recipe.findById(id);
-    if (!recipe) {
-      return res.status(404).json({ message: "Recipe not found" });
-    }
-    await recipe.remove();
-    res.json({
-      message: "Recipe deleted successfully",
+  const { id } = req.params;
+  const recipe = await Recipe.findByIdAndDelete(id);
+  console.log(id);
+  if (recipe) {
+    return res.status(200).json({
+      message: `${id} had been deleted successfully`,
     });
-  } else {
-    return res
-      .status(403)
-      .json({ message: "You are not authorized to delete this recipe" });
-  }
+  } else return res.status(404).json({ message: `${id} not found` });
 });
 
 // // Like recipe
@@ -148,23 +143,19 @@ const deleteRecipe = asyncHandler(async (req, res) => {
 //     return res.status(404).json({ message: "Recipe not found" });
 //   }
 
- 
 //   // const likeIndex = recipe.likedPosts;
 //   recipe.likedPosts=!(recipe.likedPosts)
 //   await recipe.save();
 
 //     console.log(recipe.likedPosts);
 
-  
-
 // });
-
 
 const likeRecipe = asyncHandler(async (req, res) => {
   const { user, id } = req.body;
 
   const recipe = await Recipe.findById(id);
-  console.log(id,recipe)
+  console.log(id, recipe);
   if (!recipe) {
     return res.status(404).json({ message: "Like Recipe not found" });
   }
@@ -211,6 +202,7 @@ const getLikesData = asyncHandler(async (req, res) => {
 });
 
 export default {
+  getRecipeById,
   likeRecipe,
   getLikesData,
   postRecipe,

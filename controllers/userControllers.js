@@ -2,10 +2,10 @@ import asyncHandler from "express-async-handler";
 import generateToken from "../utils/generateToken.js";
 import User from "../models/userModel.js";
 import cloudinary from "cloudinary";
-
+import Recipe from "../models/recipeModel.js";
 //============
 const registerUser = asyncHandler(async (req, res, next) => {
-  const { name, email, password, phoneNumber, isAdmin } = req.body;
+  const { name, email, password, isAdmin } = req.body;
 
   if (!name || !email || !password) {
     return res
@@ -39,14 +39,13 @@ const registerUser = asyncHandler(async (req, res, next) => {
     api_secret: process.env.API_SECRET,
   });
 
-  const result = await cloudinary.uploader.upload(req.file.path) || "";
+  const result = (await cloudinary.uploader.upload(req.file.path)) || "";
 
   // Create user with uploaded image URL
   const user = new User({
     name,
     email,
     password,
-    phoneNumber,
     profilePic: result.secure_url,
     isAdmin: isAdmin || false,
     success: true,
@@ -80,7 +79,7 @@ const login = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
   if (user && (await user.matchPassword(password))) {
     return res.status(200).json({
-      id:user.id,
+      id: user.id,
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
@@ -88,30 +87,25 @@ const login = asyncHandler(async (req, res) => {
       phoneNumber: user.phoneNumber,
     });
   } else {
-    return res
-      .status(200)
-      .json({ message: "Invalid email or password"});
+    return res.status(200).json({ message: "Invalid email or password" });
   }
 });
 
 //============
 
 const updateUserProfile = asyncHandler(async (req, res) => {
-  const { id } = req.body;
+  const { id } = req.params;
   const user = await User.findById(id);
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
 
-  // Update name and email fields if provided in request body
   user.name = req.body.name || user.name;
   user.email = req.body.email || user.email;
 
-  // Update phone number field if provided in request body
   user.phoneNumber = req.body.phoneNumber || user.phoneNumber;
 
-  // Upload new profile pic to Cloudinary if provided in request body
   if (req.file) {
     cloudinary.config({
       cloud_name: process.env.CLOUD_NAME,
@@ -124,7 +118,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     user.profilePic = result.secure_url;
   }
 
-  // Update password field if provided in request body
   if (req.body.password) {
     user.password = req.body.password;
   }
@@ -144,7 +137,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     savedPosts: updatedUser.savedPosts,
   });
 });
-
 
 //============
 
@@ -206,11 +198,12 @@ const followUser = asyncHandler(async (req, res) => {
   try {
     const { id } = req.body;
     const user = await User.findById(req.user._id);
+    console.log(user);
     const userToFollow = await User.findById(id);
-
+    console.log(id);
     if (!userToFollow) {
       return res
-        .status(404)
+        .status(200)
         .json({ message: "User not found", success: false });
     }
 
@@ -305,28 +298,24 @@ const unfollowUser = asyncHandler(async (req, res) => {
 //============
 
 const deleteUser = asyncHandler(async (req, res) => {
-  const { id } = req.body;
-  const userToDelete = await User.findById(id);
+  const id = req.params.id;
+  console.log(id);
+  const user = await User.findById(id);
+  console.log(user.following);
 
-  // Check if user exists
-  if (!userToDelete) {
-    return res.status(200).json({ message: "User not found", success: false });
-  }
+  // Remove user's id from followers array of all users
+  await User.updateMany({ followers: id }, { $pull: { followers: id } });
 
-  // Check if the authenticated user is authorized to delete the user
-  if (req.user.id !== userToDelete.id) {
-    return res.status(200).json({
-      message: "Not authorized to perform this action",
-      success: false,
-    });
-  }
+  // Delete all recipes posted by the user
+  await Recipe.deleteMany({ user: id });
 
+  // Delete the user
   const deletedUser = await User.findByIdAndDelete(id);
-
-  res.json({
-    message: "User deleted successfully",
-    deleteUser: deletedUser,
-  });
+  if (deletedUser) {
+    return res.status(200).json({
+      message: `${id} had been deleted successfully`,
+    });
+  } else return res.status(404).json({ message: `${id} not found` });
 });
 
 export default {

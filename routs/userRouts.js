@@ -9,11 +9,11 @@ router.route("/login").post(UsersController.login);
 
 router.route("/").post(upload.single("image"), UsersController.registerUser);
 
-router.route("/follow/:id").post(protect, UsersController.followUser);
+router.route("/follow").post(protect, UsersController.followUser);
 
-router.route("/unfollow/:id").post(protect, UsersController.unfollowUser);
+router.route("/unfollow").post(protect, UsersController.unfollowUser);
 
-router.route("/").patch(protect, upload.single("image"), UsersController.updateUserProfile);
+router.route("/:id").patch(protect, upload.single("image"), UsersController.updateUserProfile);
 
 router.route("/").get(UsersController.getAllUsers);
 
@@ -25,6 +25,6 @@ router.route("/followers/:id").get(UsersController.getUserFollowers);
 
 router.route("/following/:id").get(UsersController.getUserFollowing);
 
-router.route("/").delete(protect, UsersController.deleteUser);
+router.route("/:id").delete( UsersController.deleteUser);
 
 export default router;

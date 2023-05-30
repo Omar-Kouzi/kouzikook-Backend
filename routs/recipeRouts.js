@@ -5,15 +5,15 @@ import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
-router.route("/").post(protect, upload.single("image"), Recipe.postRecipe);
+router.route("/:id").post(protect, upload.single("image"), Recipe.postRecipe);
 
 router.route("/").patch(protect,upload.single("image"), Recipe.updateRecipeFour);
 
-router.route("/").delete(protect, Recipe.deleteRecipe);
+router.route("/:id").delete(Recipe.deleteRecipe);
 
 router.route("/").get( Recipe.getAllRecipes);
 
-router.route("/likes").get( Recipe.likeRecipe);
-router.route("/like").post( Recipe.likeRecipe);
+router.route("/:id").get( Recipe.getRecipeById);
+
 
 export default router;
