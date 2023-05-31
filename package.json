@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node index",
-    "start": "nodemon index"
+    "build": "npm i",
+    "dev": "nodemon index"
   },
   "type": "module",
   "author": "",
