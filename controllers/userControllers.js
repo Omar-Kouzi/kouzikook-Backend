@@ -196,9 +196,9 @@ const getUserFollowing = asyncHandler(async (req, res) => {
 
 const followUser = asyncHandler(async (req, res) => {
   try {
-    const { id } = req.body;
     const user = await User.findById(req.user._id);
     console.log(user);
+    const { id } = req.params;
     const userToFollow = await User.findById(id);
     console.log(id);
     if (!userToFollow) {
@@ -239,10 +239,12 @@ const followUser = asyncHandler(async (req, res) => {
 //============
 
 const unfollowUser = asyncHandler(async (req, res) => {
-  const { id } = req.body;
-  const user = await User.findById(req.user._id);
-  const userToUnfollow = await User.findById(id);
 
+  const user = await User.findById(req.user._id);
+console.log(user)
+  const { id } = req.params;
+  const userToUnfollow = await User.findById(id);
+console.log(id)
   if (!userToUnfollow) {
     return res.status(200).json({ message: "User not found", success: false });
   }

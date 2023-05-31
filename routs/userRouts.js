@@ -9,9 +9,9 @@ router.route("/login").post(UsersController.login);
 
 router.route("/").post(upload.single("image"), UsersController.registerUser);
 
-router.route("/follow").post(protect, UsersController.followUser);
+router.route("/follow/:id").post(protect, UsersController.followUser);
 
-router.route("/unfollow").post(protect, UsersController.unfollowUser);
+router.route("/unfollow/:id").post(protect, UsersController.unfollowUser);
 
 router.route("/:id").patch(protect, upload.single("image"), UsersController.updateUserProfile);
 

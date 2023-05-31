@@ -15,5 +15,7 @@ router.route("/").get( Recipe.getAllRecipes);
 
 router.route("/:id").get( Recipe.getRecipeById);
 
+router.route("/approve/:id").patch( Recipe.approveRecipe);
+
 
 export default router;

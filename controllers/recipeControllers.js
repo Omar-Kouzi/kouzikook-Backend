@@ -66,7 +66,7 @@ const getAllRecipes = asyncHandler(async (req, res) => {
 const getRecipeById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const recipe = await Recipe.findById(id);
-  console.log(id)
+  console.log(id);
   res.json(recipe);
 });
 //============
@@ -134,77 +134,25 @@ const deleteRecipe = asyncHandler(async (req, res) => {
   } else return res.status(404).json({ message: `${id} not found` });
 });
 
-// // Like recipe
-// const likeRecipe = asyncHandler(async (req, res) => {
-//   const { user, id } = req.body;
+//=============
 
-//   const recipe = await Recipe.findById(id);
-//   if (!recipe) {
-//     return res.status(404).json({ message: "Recipe not found" });
-//   }
-
-//   // const likeIndex = recipe.likedPosts;
-//   recipe.likedPosts=!(recipe.likedPosts)
-//   await recipe.save();
-
-//     console.log(recipe.likedPosts);
-
-// });
-
-const likeRecipe = asyncHandler(async (req, res) => {
-  const { user, id } = req.body;
+const approveRecipe = asyncHandler(async (req, res) => {
+  const { id } = req.params;
 
   const recipe = await Recipe.findById(id);
-  console.log(id, recipe);
   if (!recipe) {
-    return res.status(404).json({ message: "Like Recipe not found" });
+    return res.status(404).json({ message: "Recipe not found" });
   }
 
-  // Check if the user has already liked this recipe
-  const index = recipe.likedBy.indexOf(user);
-  const liked = index !== -1;
+  recipe.approved = true;
 
-  // Toggle the liked status
-  if (liked) {
-    recipe.likedBy.splice(index, 1);
-  } else {
-    recipe.likedBy.push(user);
-  }
-
-  // Update the likes count and save the recipe
-  recipe.likesCount = recipe.likedBy.length;
   await recipe.save();
 
-  // Return the recipe with the new 'liked' property
-  const responseRecipe = recipe.toObject();
-  responseRecipe.liked = !liked;
-  return res.json({ recipe: responseRecipe });
+  return res.json({ recipe });
 });
-
-// Get likes data for all recipes
-const getLikesData = asyncHandler(async (req, res) => {
-  // Retrieve likes data for all recipes
-  const likesData = await Like.aggregate([
-    {
-      $group: {
-        _id: "$recipe",
-        likes: { $push: "$user" },
-        count: { $sum: 1 },
-      },
-    },
-  ]);
-
-  // Create a map of recipe IDs to likes data
-  const likesMap = new Map();
-  likesData.forEach((item) => likesMap.set(item._id.toString(), item));
-
-  return res.json(likesMap);
-});
-
 export default {
   getRecipeById,
-  likeRecipe,
-  getLikesData,
+  approveRecipe,
   postRecipe,
   getAllRecipes,
   updateRecipeFour,
