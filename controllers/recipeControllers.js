@@ -32,7 +32,7 @@ const postRecipe = asyncHandler(async (req, res) => {
 
     const result = await cloudinary.v2.uploader.upload(req.file.path);
 
-    const parsedIngredients = ingredients.split(";").map((i) => i.trim());
+    const parsedIngredients = ingredients.split(/,|;/).map((i) => i.trim());
 
     const recipe = new Recipe({
       user: user.id,
