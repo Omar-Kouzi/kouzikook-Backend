@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import Recipe from "../models/recipeModel.js";
 import User from "../models/userModel.js";
 import cloudinary from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 //============
 
 const postRecipe = asyncHandler(async (req, res) => {
@@ -123,16 +124,88 @@ const updateRecipeFour = asyncHandler(async (req, res) => {
 
 //=============
 
+// const deleteRecipe = asyncHandler(async (req, res) => {
+//   const { id } = req.params;
+
+//   // Fetch the recipe by ID
+//   const recipe = await Recipe.findById(id);
+//   if (!recipe) {
+//     return res.status(404).json({ message: `Recipe with ID ${id} not found` });
+//   }
+
+//   // Log the image public ID
+//   console.log('Image public ID:', recipe.image);
+
+//   try {
+//     // Delete the image from Cloudinary
+//     await cloudinary.v2.api.delete_resources(
+//       [recipe.image],
+//       { type: 'upload', resource_type: 'image' }
+//     );
+//     console.log(`Image ${recipe.image} deleted from Cloudinary`);
+//   } catch (error) {
+//     console.error('Error deleting image from Cloudinary:', error);
+//     return res.status(500).json({ message: 'Error deleting image from Cloudinary' });
+//   }
+
+//   // Delete the recipe from the database
+//   try {
+//     await Recipe.findByIdAndDelete(id);
+//     return res.status(200).json({
+//       message: `Recipe with ID ${id} has been deleted successfully`,
+//     });
+//   } catch (error) {
+//     console.error('Error deleting recipe from database:', error);
+//     return res.status(500).json({ message: 'Error deleting recipe from the database' });
+//   }
+// });
 const deleteRecipe = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const recipe = await Recipe.findByIdAndDelete(id);
-  console.log(id);
-  if (recipe) {
+
+  // Ensure Cloudinary is configured
+  cloudinary.v2.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.API_KEY,
+    api_secret: process.env.API_SECRET,
+  });
+
+  // Fetch the recipe by ID
+  const recipe = await Recipe.findById(id);
+  if (!recipe) {
+    return res.status(404).json({ message: `Recipe with ID ${id} not found` });
+  }
+
+  // Extract the public ID from the URL
+  const fullUrl = recipe.image;
+  const urlParts = fullUrl.split('/');
+  const publicIdWithVersion = urlParts.slice(-2).join('/'); // Extracts <folder>/<version>/<public_id.extension>
+  const publicIdWithoutVersion = publicIdWithVersion.replace(/v\d+\//, ''); // Removes version (e.g., 'v123456/')
+  const publicId = publicIdWithoutVersion.split('.')[0]; // Removes the extension (e.g., '.png', '.jpg')
+  console.log('Corrected Public ID:', publicId);  try {
+    // Delete the image from Cloudinary
+    const deleteResult = await cloudinary.v2.uploader.destroy(publicId, { resource_type: 'image' });
+    console.log('Cloudinary Delete Result:', deleteResult);
+    if (deleteResult.result !== 'ok') {
+      return res.status(500).json({ message: 'Failed to delete image from Cloudinary' });
+    }
+  } catch (error) {
+    console.error('Error deleting image from Cloudinary:', error);
+    return res.status(500).json({ message: 'Error deleting image from Cloudinary' });
+  }
+
+  // Delete the recipe from the database
+  try {
+    await Recipe.findByIdAndDelete(id);
     return res.status(200).json({
-      message: `${id} had been deleted successfully`,
+      message: `Recipe with ID ${id} has been deleted successfully`,
     });
-  } else return res.status(404).json({ message: `${id} not found` });
+  } catch (error) {
+    console.error('Error deleting recipe from database:', error);
+    return res.status(500).json({ message: 'Error deleting recipe from the database' });
+  }
 });
+
+
 
 //=============
 
